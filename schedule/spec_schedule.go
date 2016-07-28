@@ -63,35 +63,58 @@ func (ss *SpecSchedule) Parse(spec string) error {
 
 func (ss *SpecSchedule) Next(current time.Time) time.Time {
 	t := current.Add(time.Second - time.Duration(current.Nanosecond()))
+	added := false
 
+REDO:
 	for !testBit(ss.Month, 63) && !testBit(ss.Month, int(t.Month())) {
+		if !added {
+			added = true
+			t = time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.Local)
+		}
 		t = t.AddDate(0, 1, 0)
-		// set day to be first of that month
-		t = t.AddDate(0, 0, 1-t.Day())
-		//fmt.Println("testMonth")
+		if t.Month() == time.January {
+			goto REDO
+		}
 	}
 	// day of week is also checked here
-	for !testBit(ss.Day, 63) && !testBit(ss.Day, t.Day()) && !testBit(ss.Dow, int(t.Weekday())) {
+	for !testDay(ss, t) {
+		if !added {
+			added = true
+			t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
+		}
 		t = t.AddDate(0, 0, 1)
-		// set hour to be first of that day
-		t = t.Add(-time.Duration(t.Hour()))
-		//fmt.Println("testDay")
+		if t.Day() == 1 {
+			goto REDO
+		}
 	}
 	for !testBit(ss.Hour, 63) && !testBit(ss.Hour, t.Hour()) {
+		if !added {
+			added = true
+			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, time.Local)
+		}
 		t = t.Add(time.Hour)
-		// set minute to be first of that hour
-		t = t.Add(-time.Duration(t.Minute()))
-		//fmt.Println("testHour")
+		if t.Hour() == 0 {
+			goto REDO
+		}
 	}
 	for !testBit(ss.Minute, 63) && !testBit(ss.Minute, t.Minute()) {
+		if !added {
+			added = true
+			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 0, 0, time.Local)
+		}
 		t = t.Add(time.Minute)
-		// set second to be first of that minute
-		t = t.Add(-time.Duration(t.Second()))
-		//fmt.Println("testMinute")
+		if t.Minute() == 0 {
+			goto REDO
+		}
 	}
 	for !testBit(ss.Second, 63) && !testBit(ss.Second, t.Second()) {
+		if !added {
+			added = true
+		}
 		t = t.Add(time.Second)
-		//fmt.Println("testSecond", t.Second())
+		if t.Second() == 0 {
+			goto REDO
+		}
 	}
 
 	return t
@@ -174,4 +197,13 @@ func setBits(val *uint64, r brange) {
 func testBit(a uint64, p int) bool {
 	var b uint64 = 1
 	return a&(b<<uint(p)) > 0
+}
+
+func testDay(ss *SpecSchedule, t time.Time) bool {
+	if testBit(ss.Dow, int(t.Weekday())) {
+		if testBit(ss.Day, 63) || testBit(ss.Day, t.Day()) {
+			return true
+		}
+	}
+	return false
 }

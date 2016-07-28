@@ -18,7 +18,9 @@ func TestSpecSchedule(t *testing.T) {
 	testSpec(ss, "60 * * * * *")
 	testSpec(ss, "0 0 0 0-40 * *")
 	fmt.Println("=======================")
-	testNext(ss, "0 30 23 * * *")
+	//testNext(ss, "0 30 23 * * *")
+	//testNext(ss, "0 30 0 * * 1-5")
+	testNext(ss, "0 0-59/30 11-13 * * *")
 }
 
 func testSpec(ss *SpecSchedule, spec string) {
@@ -40,7 +42,7 @@ func testNext(ss *SpecSchedule, spec string) {
 	for {
 		next = ss.Next(next)
 		fmt.Println("next:", next)
-		tiker := time.NewTicker(time.Second * 2)
+		tiker := time.NewTicker(time.Second * 1)
 		<-tiker.C
 		count++
 		if count == 10 {
