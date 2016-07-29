@@ -20,15 +20,6 @@ type brange struct {
 	all            bool
 }
 
-var (
-	seconds = bounds{0, 59}
-	minutes = bounds{0, 59}
-	hours   = bounds{0, 23}
-	days    = bounds{1, 31}
-	months  = bounds{1, 12}
-	dows    = bounds{0, 6}
-)
-
 // (*) all  : "* 0 * * * *" every first minute
 // (-) range: "* 0-30 * * * *" every minite in the range [0,30] of an hour(0,1,2...30)
 // (/) step : "* 0-30/2 * * * *" every two minites in the range [0,30] of an hour(0,2,4...30)
@@ -40,22 +31,22 @@ func (ss *SpecSchedule) Parse(spec string) error {
 	}
 
 	var err error
-	if ss.Second, err = parseField(fields[0], seconds); err != nil {
+	if ss.Second, err = parseField(fields[0], bounds{0, 59}); err != nil {
 		return errors.New("Second: " + err.Error())
 	}
-	if ss.Minute, err = parseField(fields[1], minutes); err != nil {
+	if ss.Minute, err = parseField(fields[1], bounds{0, 59}); err != nil {
 		return errors.New("Minute: " + err.Error())
 	}
-	if ss.Hour, err = parseField(fields[2], hours); err != nil {
+	if ss.Hour, err = parseField(fields[2], bounds{0, 23}); err != nil {
 		return errors.New("Hour: " + err.Error())
 	}
-	if ss.Day, err = parseField(fields[3], days); err != nil {
+	if ss.Day, err = parseField(fields[3], bounds{1, 31}); err != nil {
 		return errors.New("Day: " + err.Error())
 	}
-	if ss.Month, err = parseField(fields[4], months); err != nil {
+	if ss.Month, err = parseField(fields[4], bounds{1, 12}); err != nil {
 		return errors.New("Month: " + err.Error())
 	}
-	if ss.Dow, err = parseField(fields[5], dows); err != nil {
+	if ss.Dow, err = parseField(fields[5], bounds{0, 6}); err != nil {
 		return errors.New("Dow: " + err.Error())
 	}
 	return nil
@@ -63,15 +54,23 @@ func (ss *SpecSchedule) Parse(spec string) error {
 
 func (ss *SpecSchedule) Next(current time.Time) time.Time {
 	t := current.Add(time.Second - time.Duration(current.Nanosecond()))
+	// indicate a field has been added
 	added := false
+	yearLimit := t.Year() + 1
 
 REDO:
+	if t.Year() > yearLimit {
+		return time.Time{}
+	}
+	// test all-bit for quick check
 	for !testBit(ss.Month, 63) && !testBit(ss.Month, int(t.Month())) {
+		// if added, reset lower fields
 		if !added {
 			added = true
 			t = time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.Local)
 		}
 		t = t.AddDate(0, 1, 0)
+		// the addition led to a carry, check higher fields
 		if t.Month() == time.January {
 			goto REDO
 		}

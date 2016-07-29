@@ -17,10 +17,13 @@ func TestSpecSchedule(t *testing.T) {
 	testSpec(ss, "* 0,1, * * * 0-8")
 	testSpec(ss, "60 * * * * *")
 	testSpec(ss, "0 0 0 0-40 * *")
+	testSpec(ss, "0 0 0 31 2 *")
 	fmt.Println("=======================")
-	//testNext(ss, "0 30 23 * * *")
-	//testNext(ss, "0 30 0 * * 1-5")
+	testNext(ss, "0 30 23 * * *")
+	testNext(ss, "0 30 0 * * 1-5")
 	testNext(ss, "0 0-59/30 11-13 * * *")
+	testNext(ss, "0 0 0 29 2 *")
+	testNext(ss, "0 0,59 12 * * 5")
 }
 
 func testSpec(ss *SpecSchedule, spec string) {
@@ -42,6 +45,10 @@ func testNext(ss *SpecSchedule, spec string) {
 	for {
 		next = ss.Next(next)
 		fmt.Println("next:", next)
+		if next.Before(time.Now()) {
+			fmt.Println("error:", "invalid next time")
+			break
+		}
 		tiker := time.NewTicker(time.Second * 1)
 		<-tiker.C
 		count++
