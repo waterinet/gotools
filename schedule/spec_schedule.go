@@ -21,9 +21,9 @@ type brange struct {
 }
 
 // (*) all  : "* 0 * * * *" every first minute
-// (-) range: "* 0-30 * * * *" every minite in the range [0,30] of an hour(0,1,2...30)
-// (/) step : "* 0-30/2 * * * *" every two minites in the range [0,30] of an hour(0,2,4...30)
-// (,) list : "* 1,3,5 * * * *" the minutes {1,3,5} of an hour
+// (-) range: "* 0-30 * * * *" at minute {0,1,2...30}
+// (/) step : "* 0-30/2 */1 * * *" at minute {0,2,4...30}
+// (,) list : "* 1,3,5 * * * *" at minute {1,3,5}
 func (ss *SpecSchedule) Parse(spec string) error {
 	fields := strings.Fields(spec)
 	if len(fields) != 6 {
@@ -133,9 +133,6 @@ func parseField(field string, b bounds) (uint64, error) {
 }
 
 func getRange(s string, b bounds) (brange, error) {
-	if s == "*" {
-		return brange{b.min, b.max, 1, true}, nil
-	}
 	remain := s
 	r := brange{0, 0, 1, false}
 	// get step
@@ -166,19 +163,26 @@ func getRange(s string, b bounds) (brange, error) {
 		} else {
 			r.min = min
 			r.max = max
-			return r, nil
+		}
+	} else if remain == "*" {
+		r.min = b.min
+		r.max = b.max
+	} else { // individual value
+		if val, err := strconv.Atoi(remain); err != nil {
+			return r, errors.New("invalid value")
+		} else if val < b.min || val > b.max {
+			return r, errors.New("invalid value: out of bounds")
+		} else {
+			r.min = val
+			r.max = val
 		}
 	}
-	// individual value
-	if val, err := strconv.Atoi(remain); err != nil {
-		return r, errors.New("invalid value")
-	} else if val < b.min || val > b.max {
-		return r, errors.New("invalid value: out of bounds")
-	} else {
-		r.min = val
-		r.max = val
-		return r, nil
+	// check 'all' bit
+	if r.min == b.min && r.max == b.max && r.step == 1 {
+		r.all = true
 	}
+
+	return r, nil
 }
 
 func setBits(val *uint64, r brange) {
